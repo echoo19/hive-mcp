@@ -1,11 +1,11 @@
-# @hive/mcp
+# @echoo19/hive-mcp
 
 MCP server for discovering and installing Hive agent tools.
 
 ## Install
 
 ```bash
-npm install -g @hive/mcp
+npm install -g @echoo19/hive-mcp
 ```
 
 ## Configure
