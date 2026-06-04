@@ -25,6 +25,19 @@ export async function executeInstall(spec: InstallSpec, cwd: string): Promise<In
     }
   }
 
+  // CLI: brew install (macOS, when no npm package available)
+  if (types.includes('cli') && spec.brewFormula && !spec.npmPackage) {
+    const cmd = `brew install ${spec.brewFormula}`;
+    console.log(`[hive] Running: ${cmd}`);
+    try {
+      execSync(cmd, { stdio: 'inherit' });
+      recordInstall(spec.name, spec.version, spec.types);
+      return { status: 'installed', command: cmd };
+    } catch (err) {
+      return { status: 'error', command: cmd, message: (err as Error).message };
+    }
+  }
+
   // MCP: patch config file
   if (types.includes('mcp') || types.includes('server')) {
     if (!spec.mcpServers) {

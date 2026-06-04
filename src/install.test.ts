@@ -81,6 +81,32 @@ describe('executeInstall', () => {
     expect(result.status).toBe('installed');
   });
 
+  it('runs brew install for CLI tools with brew formula and no npm package', async () => {
+    const brewSpec: InstallSpec = {
+      name: 'gh', types: ['cli'], version: '2.93.0',
+      npmPackage: null, brewFormula: 'gh', mcpServers: null,
+    };
+    const result = await executeInstall(brewSpec, process.cwd());
+    expect(childProcess.execSync).toHaveBeenCalledWith(
+      'brew install gh',
+      expect.objectContaining({ stdio: 'inherit' })
+    );
+    expect(result.status).toBe('installed');
+    expect(result.command).toBe('brew install gh');
+  });
+
+  it('prefers npm over brew when both are available', async () => {
+    const bothSpec: InstallSpec = {
+      name: 'gh', types: ['cli'], version: '2.93.0',
+      npmPackage: '@github/gh', brewFormula: 'gh', mcpServers: null,
+    };
+    await executeInstall(bothSpec, process.cwd());
+    expect(childProcess.execSync).toHaveBeenCalledWith(
+      'npm install -g @github/gh',
+      expect.objectContaining({ stdio: 'inherit' })
+    );
+  });
+
   it('returns error status when patchMcpConfig throws', async () => {
     vi.mocked(patchMcpConfig).mockImplementation(() => { throw new Error('write failed'); });
     const result = await executeInstall(mcpSpec, process.cwd());
