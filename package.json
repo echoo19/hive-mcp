@@ -1,10 +1,10 @@
 {
-  "name": "@hive/mcp",
+  "name": "@echoo19/hive-mcp",
   "version": "0.1.0",
   "description": "MCP server for discovering and installing Hive agent tools",
   "type": "module",
   "bin": {
-    "hive-mcp": "./dist/index.js"
+    "hive-mcp": "dist/index.js"
   },
   "main": "./dist/index.js",
   "scripts": {
@@ -26,5 +26,8 @@
   "engines": {
     "node": ">=18"
   },
-  "files": ["dist/", "README.md"]
+  "files": [
+    "dist/",
+    "README.md"
+  ]
 }
