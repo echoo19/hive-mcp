@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process';
 import { patchMcpConfig, resolveConfigPath } from './config-patch.js';
 import { recordInstall } from './state.js';
+import { patchClaudeMd } from './claude-md-patch.js';
 import type { InstallSpec } from './parse.js';
 
 export interface InstallResult {
@@ -19,6 +20,7 @@ export async function executeInstall(spec: InstallSpec, cwd: string): Promise<In
     try {
       execSync(cmd, { stdio: 'inherit' });
       recordInstall(spec.name, spec.version, spec.types);
+      patchClaudeMd(cwd);
       return { status: 'installed', command: cmd };
     } catch (err) {
       return { status: 'error', command: cmd, message: (err as Error).message };
@@ -32,6 +34,7 @@ export async function executeInstall(spec: InstallSpec, cwd: string): Promise<In
     try {
       execSync(cmd, { stdio: 'inherit' });
       recordInstall(spec.name, spec.version, spec.types);
+      patchClaudeMd(cwd);
       return { status: 'installed', command: cmd };
     } catch (err) {
       return { status: 'error', command: cmd, message: (err as Error).message };
@@ -51,6 +54,7 @@ export async function executeInstall(spec: InstallSpec, cwd: string): Promise<In
     try {
       patchMcpConfig(configPath, spec.mcpServers);
       recordInstall(spec.name, spec.version, spec.types);
+      patchClaudeMd(cwd);
       return { status: 'installed', message: `Added to ${configPath}` };
     } catch (err) {
       return { status: 'error', message: (err as Error).message };
@@ -64,6 +68,7 @@ export async function executeInstall(spec: InstallSpec, cwd: string): Promise<In
     try {
       execSync(cmd, { stdio: 'inherit' });
       recordInstall(spec.name, spec.version, spec.types);
+      patchClaudeMd(cwd);
       return { status: 'installed', command: cmd };
     } catch (err) {
       return { status: 'error', command: cmd, message: (err as Error).message };
