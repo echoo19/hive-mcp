@@ -7,8 +7,16 @@ import { join } from 'node:path';
 import { matchTools, fetchInstallMd } from './hive-api.js';
 import { parseInstallMd } from './parse.js';
 import { executeInstall } from './install.js';
-import { readState } from './state.js';
+import { allLock } from './lockfile.js';
+import {
+  uninstall as lifecycleUninstall,
+  update as lifecycleUpdate,
+  sync as lifecycleSync,
+  audit as lifecycleAudit,
+} from './lifecycle.js';
 import { patchClaudeMd } from './claude-md-patch.js';
+
+const BASE = 'https://hive-tooling.vercel.app';
 
 const server = new McpServer({
   name: 'hive',
@@ -33,34 +41,90 @@ server.tool(
 
 server.tool(
   'install',
-  'Install a Hive tool by its slug. Fetches install instructions and executes the appropriate installer. Logs all commands before running.',
+  'Install a Hive tool by its slug. Fetches install instructions, executes the installer, and records it in hive.lock for reproducibility.',
   { slug: z.string().describe('The tool slug from the Hive catalog, e.g. "mcp-supabase" or "gh"') },
   async ({ slug }) => {
     const md = await fetchInstallMd(slug);
     const spec = parseInstallMd(md);
-    const result = await executeInstall(spec, process.cwd(), { slug, source: `https://hive-tooling.vercel.app/tools/${slug}` });
+    const result = await executeInstall(spec, process.cwd(), { slug, source: `${BASE}/tools/${slug}` });
 
     if (result.status === 'installed') {
       return { content: [{ type: 'text', text: `✓ ${slug} installed.${result.command ? ` Ran: ${result.command}` : ''} ${result.message ?? ''}`.trim() }] };
     }
     if (result.status === 'unsupported') {
-      return { content: [{ type: 'text', text: `Cannot auto-install ${slug}: ${result.message}\n\nFetch manual instructions: https://hive-tooling.vercel.app/tools/${slug}/install.md` }] };
+      return { content: [{ type: 'text', text: `Cannot auto-install ${slug}: ${result.message}\n\nFetch manual instructions: ${BASE}/tools/${slug}/install.md` }] };
     }
     return { content: [{ type: 'text', text: `Error installing ${slug}: ${result.message}` }], isError: true } as any;
   }
 );
 
 server.tool(
-  'list',
-  'List all tools currently installed via Hive.',
+  'uninstall',
+  'Uninstall a Hive tool by slug: reverses the recorded install (npm/brew/skill/mcp) and removes it from hive.lock. Refcount-safe for global tools.',
+  { slug: z.string().describe('The tool slug to uninstall, e.g. "mcp-supabase"') },
+  async ({ slug }) => {
+    const r = await lifecycleUninstall(slug, process.cwd());
+    return { content: [{ type: 'text', text: r.message }] };
+  }
+);
+
+server.tool(
+  'update',
+  'Update one tool (by slug) or every tool in hive.lock: re-fetch install instructions, reinstall, and bump the recorded version.',
+  { slug: z.string().optional().describe('Optional slug; omit to update all tools in hive.lock') },
+  async ({ slug }) => {
+    const r = await lifecycleUpdate(slug, process.cwd());
+    const lines = [
+      ...r.updated.map(u => `↑ ${u.slug}: ${u.from} → ${u.to}`),
+      ...r.failed.map(f => `✗ ${f.slug}: ${f.message}`),
+    ];
+    return { content: [{ type: 'text', text: lines.length ? lines.join('\n') : 'Nothing to update.' }] };
+  }
+);
+
+server.tool(
+  'sync',
+  'Reconstitute the project toolset from hive.lock: install every recorded tool that is not currently present. Reports installed / already-present / failed.',
   {},
   async () => {
-    const state = readState();
-    const entries = Object.values(state);
+    const r = await lifecycleSync(process.cwd());
+    const lines = [
+      ...r.installed.map(s => `+ installed ${s}`),
+      ...r.alreadyPresent.map(s => `= already present ${s}`),
+      ...r.failed.map(f => `✗ ${f.slug}: ${f.message}`),
+    ];
+    return { content: [{ type: 'text', text: lines.length ? lines.join('\n') : 'hive.lock is empty; nothing to sync.' }] };
+  }
+);
+
+server.tool(
+  'audit',
+  'Report drift between hive.lock, what is installed, and the catalog: missing (in lock, not installed), untracked (installed, not in lock), and stale (lock version behind catalog).',
+  {},
+  async () => {
+    const r = await lifecycleAudit(process.cwd());
+    const lines = [
+      ...r.missing.map(s => `missing: ${s} (in lock, not installed)`),
+      ...r.untracked.map(s => `untracked: ${s} (installed, not in lock)`),
+      ...r.stale.map(s => `stale: ${s.slug} (lock ${s.lockVersion} ≠ catalog ${s.catalogVersion})`),
+    ];
+    return { content: [{ type: 'text', text: lines.length ? lines.join('\n') : 'No drift: hive.lock matches the installed toolset.' }] };
+  }
+);
+
+server.tool(
+  'list',
+  "List the tools recorded in this project's hive.lock with slug, name, version, types, method, scope, and source.",
+  {},
+  async () => {
+    const tools = allLock(process.cwd());
+    const entries = Object.entries(tools);
     if (entries.length === 0) {
-      return { content: [{ type: 'text', text: 'No tools installed via Hive yet. Use discover() to find tools.' }] };
+      return { content: [{ type: 'text', text: 'No tools in hive.lock yet. Use discover() to find tools and install() to add them.' }] };
     }
-    const text = entries.map(e => `${e.slug} v${e.version} (${e.type.join(', ')}) — installed ${e.installedAt}`).join('\n');
+    const text = entries.map(([slug, e]) =>
+      `${slug} — ${e.name} v${e.version} [${e.types.join(', ')}] via ${e.method}/${e.scope} (${e.source})`
+    ).join('\n');
     return { content: [{ type: 'text', text }] };
   }
 );
