@@ -37,3 +37,35 @@ export function patchMcpConfig(
   fs.mkdirSync(path.dirname(configPath), { recursive: true });
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 }
+
+/** Remove exactly the named servers from a config's mcpServers block. No-op if nothing changes. */
+export function unpatchMcpConfig(configPath: string, serverNames: string[]): void {
+  if (!fs.existsSync(configPath)) return;
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+  const servers = config.mcpServers as Record<string, McpServerDef> | undefined;
+  if (!servers) return;
+
+  let changed = false;
+  for (const name of serverNames) {
+    if (name in servers) {
+      delete servers[name];
+      changed = true;
+    }
+  }
+  if (!changed) return;
+
+  config.mcpServers = servers;
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+}
+
+/** List the mcpServers keys present in a config file (empty if file/block absent or unparseable). */
+export function configServerNames(configPath: string): string[] {
+  if (!fs.existsSync(configPath)) return [];
+  try {
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+    const servers = config.mcpServers as Record<string, unknown> | undefined;
+    return servers ? Object.keys(servers) : [];
+  } catch {
+    return [];
+  }
+}

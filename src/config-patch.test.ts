@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { patchMcpConfig, resolveConfigPath } from './config-patch.js';
+import { patchMcpConfig, resolveConfigPath, unpatchMcpConfig, configServerNames } from './config-patch.js';
 import type { McpServerDef } from './parse.js';
 
 vi.mock('node:fs');
@@ -84,5 +84,65 @@ describe('patchMcpConfig', () => {
 
     const saved = JSON.parse(written[0]);
     expect(saved.mcpServers.supabase.command).toBe('already-here');
+  });
+});
+
+describe('unpatchMcpConfig', () => {
+  const configPath = path.join(FAKE_HOME, '.claude', 'settings.json');
+
+  it('removes only the named servers and leaves foreign keys', () => {
+    const existing = { theme: 'dark', mcpServers: { supabase: { command: 'npx' }, other: { command: 'keep' } } };
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+    vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(existing));
+    vi.mocked(fs.mkdirSync).mockReturnValue(undefined as any);
+    const written: string[] = [];
+    vi.mocked(fs.writeFileSync).mockImplementation((_p, d) => written.push(d as string));
+
+    unpatchMcpConfig(configPath, ['supabase']);
+
+    const saved = JSON.parse(written[0]);
+    expect(saved.theme).toBe('dark');
+    expect(saved.mcpServers.other.command).toBe('keep');
+    expect(saved.mcpServers.supabase).toBeUndefined();
+  });
+
+  it('is a no-op (no write) when the file does not exist', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+    const written: string[] = [];
+    vi.mocked(fs.writeFileSync).mockImplementation((_p, d) => written.push(d as string));
+    unpatchMcpConfig(configPath, ['supabase']);
+    expect(written).toHaveLength(0);
+  });
+
+  it('is a no-op when there is no mcpServers block', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+    vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({ theme: 'dark' }));
+    const written: string[] = [];
+    vi.mocked(fs.writeFileSync).mockImplementation((_p, d) => written.push(d as string));
+    unpatchMcpConfig(configPath, ['supabase']);
+    expect(written).toHaveLength(0);
+  });
+
+  it('does not touch the file when none of the named servers are present', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+    vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({ mcpServers: { other: { command: 'keep' } } }));
+    const written: string[] = [];
+    vi.mocked(fs.writeFileSync).mockImplementation((_p, d) => written.push(d as string));
+    unpatchMcpConfig(configPath, ['supabase']);
+    expect(written).toHaveLength(0);
+  });
+});
+
+describe('configServerNames', () => {
+  const configPath = path.join(FAKE_HOME, '.claude', 'settings.json');
+
+  it('returns the mcpServers keys present in a config file', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+    vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({ mcpServers: { a: {}, b: {} } }));
+    expect(configServerNames(configPath).sort()).toEqual(['a', 'b']);
+  });
+  it('returns [] when file or block is absent', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+    expect(configServerNames(configPath)).toEqual([]);
   });
 });
