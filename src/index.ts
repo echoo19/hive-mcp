@@ -38,7 +38,7 @@ server.tool(
   async ({ slug }) => {
     const md = await fetchInstallMd(slug);
     const spec = parseInstallMd(md);
-    const result = await executeInstall(spec, process.cwd());
+    const result = await executeInstall(spec, process.cwd(), { slug, source: `https://hive-tooling.vercel.app/tools/${slug}` });
 
     if (result.status === 'installed') {
       return { content: [{ type: 'text', text: `✓ ${slug} installed.${result.command ? ` Ran: ${result.command}` : ''} ${result.message ?? ''}`.trim() }] };
