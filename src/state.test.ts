@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { readState, writeState, recordInstall, type InstalledState } from './state.js';
+import { readState, writeState, recordInstall, addRef, removeRef, refCount, type InstalledState } from './state.js';
 
 vi.mock('node:fs');
 vi.mock('node:os');
@@ -57,5 +57,63 @@ describe('recordInstall', () => {
     expect(saved['claude-code'].slug).toBe('claude-code');
     expect(saved['claude-code'].version).toBe('2.2.0');
     expect(saved['claude-code'].type).toEqual(['cli']);
+  });
+});
+
+describe('refcount helpers', () => {
+  // Each test drives a real in-memory state via mocked fs read/write.
+  function withState(initial: Record<string, unknown>) {
+    let current = JSON.stringify(initial);
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+    vi.mocked(fs.readFileSync).mockImplementation(() => current);
+    vi.mocked(fs.mkdirSync).mockReturnValue(undefined as any);
+    vi.mocked(fs.writeFileSync).mockImplementation((_p, d) => { current = d as string; });
+    return () => JSON.parse(current);
+  }
+
+  it('addRef creates a record keyed by slug with one project ref', () => {
+    const read = withState({});
+    addRef('aider', '/proj/a', { version: '1.0.0', type: ['cli'], scope: 'global', artifactKey: 'aider-chat' });
+    const s = read();
+    expect(s.aider.slug).toBe('aider');
+    expect(s.aider.refs).toEqual(['/proj/a']);
+    expect(s.aider.artifactKey).toBe('aider-chat');
+  });
+
+  it('addRef is idempotent for the same project (no double count)', () => {
+    const read = withState({});
+    addRef('aider', '/proj/a', { version: '1.0.0', type: ['cli'], scope: 'global', artifactKey: 'aider-chat' });
+    addRef('aider', '/proj/a', { version: '1.0.0', type: ['cli'], scope: 'global', artifactKey: 'aider-chat' });
+    expect(read().aider.refs).toEqual(['/proj/a']);
+  });
+
+  it('two projects referencing one artifact => refCount 2', () => {
+    withState({});
+    addRef('aider', '/proj/a', { version: '1.0.0', type: ['cli'], scope: 'global', artifactKey: 'aider-chat' });
+    addRef('aider', '/proj/b', { version: '1.0.0', type: ['cli'], scope: 'global', artifactKey: 'aider-chat' });
+    expect(refCount('aider')).toBe(2);
+  });
+
+  it('removeRef drops one project and returns remaining count', () => {
+    withState({
+      aider: { slug: 'aider', version: '1.0.0', installedAt: 'x', type: ['cli'], scope: 'global', artifactKey: 'aider-chat', refs: ['/proj/a', '/proj/b'] },
+    });
+    const remaining = removeRef('aider', '/proj/a');
+    expect(remaining).toBe(1);
+    expect(refCount('aider')).toBe(1);
+  });
+
+  it('removeRef of the last project removes the record entirely', () => {
+    withState({
+      aider: { slug: 'aider', version: '1.0.0', installedAt: 'x', type: ['cli'], scope: 'global', artifactKey: 'aider-chat', refs: ['/proj/a'] },
+    });
+    const remaining = removeRef('aider', '/proj/a');
+    expect(remaining).toBe(0);
+    expect(refCount('aider')).toBe(0);
+  });
+
+  it('refCount of an unknown slug is 0', () => {
+    withState({});
+    expect(refCount('ghost')).toBe(0);
   });
 });
