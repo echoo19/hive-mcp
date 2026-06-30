@@ -4,7 +4,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { matchTools, fetchInstallMd } from './hive-api.js';
+import { matchTools, fetchInstallMd, formatTokens } from './hive-api.js';
 import { parseInstallMd } from './parse.js';
 import { executeInstall } from './install.js';
 import { allLock } from './lockfile.js';
@@ -28,13 +28,23 @@ server.tool(
   'Find Hive agent tools by describing what you want to build. Returns a ranked list of tools with name, type, and tagline.',
   { intent: z.string().describe('What you want to build, e.g. "deploy a Next.js app with a Supabase database"') },
   async ({ intent }) => {
-    const results = await matchTools(intent);
+    const { results, recommendation } = await matchTools(intent);
     if (results.length === 0) {
       return { content: [{ type: 'text', text: 'No tools found for that intent. Try a broader description.' }] };
     }
-    const text = results.map(r =>
-      `${r.slug} (${Array.isArray(r.type) ? r.type.join(', ') : r.type}) — ${r.tagline}`
-    ).join('\n');
+    const lines = results.map(r => {
+      const types = Array.isArray(r.type) ? r.type.join(', ') : r.type;
+      const base = `${r.slug} (${types}) — ${r.tagline}`;
+      if (r.context_cost) {
+        const tokStr = formatTokens(r.context_cost.always_on_tokens);
+        return `${base}  [${tokStr}, ${r.context_cost.tier}]`;
+      }
+      return base;
+    });
+    let text = lines.join('\n');
+    if (recommendation !== null) {
+      text += `\n\nRecommendation: ${recommendation.reason}`;
+    }
     return { content: [{ type: 'text', text }] };
   }
 );
