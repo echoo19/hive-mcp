@@ -43,3 +43,34 @@ export async function fetchInstallMd(slug: string): Promise<string> {
   if (!res.ok) throw new Error(`Hive API error: ${res.status}`);
   return res.text();
 }
+
+export interface AuditIndexSwap {
+  slug: string;
+  name: string;
+  type: string[];
+  tokens: number;
+  saved: number;
+}
+
+export interface AuditIndexEntry {
+  slug: string;
+  name: string;
+  type: string[];
+  tags: string[];
+  tagline: string;
+  packages: string[];
+  context_cost: {
+    always_on_tokens: number;
+    tier: 'light' | 'medium' | 'heavy';
+    basis: string;
+    tools_count?: number;
+  };
+  swaps?: AuditIndexSwap[];
+}
+
+export async function fetchAuditIndex(): Promise<AuditIndexEntry[]> {
+  const res = await fetch(`${BASE}/api/audit-index.json`);
+  if (!res.ok) throw new Error(`Hive API error: ${res.status}`);
+  const body = await res.json() as { entries?: AuditIndexEntry[] };
+  return body.entries ?? [];
+}
