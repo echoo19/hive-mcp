@@ -6,3 +6,6 @@ dist
 .DS_Store
 coverage
 .vitest
+
+# local agent instructions
+CLAUDE.md

@@ -1,8 +1,4 @@
-// Agent-side context audit: what does this project's MCP setup cost in
-// always-on context tokens, and where does the catalog have a lighter swap?
-// Scans project MCP config files plus hive.lock, matches against the
-// catalog's audit index (costs and swaps are computed server-side at
-// catalog build time). env blocks in configs are never read.
+// Context audit for local MCP configs and hive.lock. Env blocks are ignored.
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -142,8 +138,7 @@ export async function contextReport(cwd: string, deps: ContextDeps = DEFAULT_DEP
     });
   }
 
-  // hive.lock tools not already counted from a scanned config (MCP installs
-  // appear in both; skills/CLIs appear only here).
+  // Count lock entries that were not already found in MCP config files.
   for (const [slug, entry] of Object.entries(allLock(cwd))) {
     if (matchedSlugs.has(slug)) continue;
     const match = index.find((e) => e.slug === slug) ?? null;
@@ -172,7 +167,7 @@ export function formatContextReport(report: ContextReport): string {
   ];
   for (const i of report.items) {
     const match = i.matchSlug ? `catalog: ${i.matchSlug}` : 'estimated (not in catalog)';
-    lines.push(`  ${formatTokens(i.tokens)}  [${i.tier}] ${i.label} (${i.kind}, ${i.source}) — ${match}`);
+    lines.push(`  ${formatTokens(i.tokens)}  [${i.tier}] ${i.label} (${i.kind}, ${i.source}): ${match}`);
     for (const s of i.swaps) {
       lines.push(`      lighter: ${s.slug} (${s.type[0] ?? 'tool'}) saves ${formatTokens(s.saved)}`);
     }

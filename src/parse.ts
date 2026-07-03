@@ -38,7 +38,7 @@ export function parseInstallMd(content: string): InstallSpec {
       const parsed = JSON.parse(jsonMatch[0]) as { mcpServers: Record<string, McpServerDef> };
       mcpServers = parsed.mcpServers ?? null;
     } catch {
-      // malformed JSON — skip
+      // Malformed JSON. Skip MCP parsing.
     }
   }
 

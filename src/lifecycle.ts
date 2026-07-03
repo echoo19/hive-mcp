@@ -107,7 +107,7 @@ export async function audit(cwd: string, deps: LifecycleDeps = DEFAULT_DEPS): Pr
         summary.stale.push({ slug, lockVersion: entry.version, catalogVersion: spec.version });
       }
     } catch {
-      // network/catalog failure — skip staleness for this tool, not fatal.
+      // Network or catalog failure. Skip staleness for this tool.
     }
   }
 

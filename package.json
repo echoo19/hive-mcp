@@ -1,7 +1,17 @@
 {
   "name": "@echoo19/hive-mcp",
   "version": "0.4.0",
-  "description": "MCP server for discovering and installing Hive agent tools",
+  "description": "Discover, install, update, and audit Hive catalog tools from an MCP client",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/echoo19/hive-mcp.git"
+  },
+  "homepage": "https://hive-tooling.vercel.app",
+  "bugs": {
+    "url": "https://github.com/echoo19/hive-mcp/issues"
+  },
+  "author": "Jake Kang",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "hive-mcp": "dist/index.js"

@@ -12,12 +12,12 @@ You have access to Hive MCP tools: \`discover\`, \`install\`, \`list\`.
 - When you need a CLI, MCP server, skill, or subagent, call \`hive__discover\` with a plain description of what you need before asking the user to install it manually
 - When starting a new project, call \`hive__list\` to see what tools are already installed
 - When you identify a tool that would meaningfully help the current task, describe it and ask the user if you should install it via Hive
-- Always confirm before installing — one line: "Found [name]. Install it?"
+- Always confirm before installing with one line: "Found [name]. Install it?"
 
-**Guardrails — follow these before suggesting any Hive install:**
-- Only suggest a tool when there is a specific, immediate blocker — not because it might be useful someday
+**Guardrails for suggesting Hive installs:**
+- Only suggest a tool when there is a specific, immediate blocker, not because it might be useful someday
 - Suggest at most one tool per task; do not queue up multiple installs
-- Before suggesting, verify the tool is compatible with the current platform and project stack — do not suggest tools that target a different OS, runtime, or language
+- Before suggesting, verify the tool is compatible with the current platform and project stack
 - Do not suggest a tool if the task can be done with built-in shell commands, existing project dependencies, or already-installed Hive tools
 - Do not re-suggest a tool the user has already declined in this session
 ${MARKER_END}`;

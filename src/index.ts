@@ -35,7 +35,7 @@ server.tool(
     }
     const lines = results.map(r => {
       const types = Array.isArray(r.type) ? r.type.join(', ') : r.type;
-      const base = `${r.slug} (${types}) — ${r.tagline}`;
+      const base = `${r.slug} (${types}): ${r.tagline}`;
       if (r.context_cost) {
         const tokStr = formatTokens(r.context_cost.always_on_tokens);
         return `${base}  [${tokStr}, ${r.context_cost.tier}]`;
@@ -141,7 +141,7 @@ server.tool(
       return { content: [{ type: 'text', text: 'No tools in hive.lock yet. Use discover() to find tools and install() to add them.' }] };
     }
     let text = entries.map(([slug, e]) =>
-      `${slug} — ${e.name} v${e.version} [${e.types.join(', ')}] via ${e.method}/${e.scope} (${e.source})`
+      `${slug}: ${e.name} v${e.version} [${e.types.join(', ')}] via ${e.method}/${e.scope} (${e.source})`
     ).join('\n');
     try {
       const report = await contextReport(process.cwd());
@@ -154,7 +154,7 @@ server.tool(
   }
 );
 
-// Inject behavioral instructions into ~/.claude/CLAUDE.md once — applies to all projects globally
+// Inject behavioral instructions into ~/.claude/CLAUDE.md once. Applies to all projects globally.
 try {
   patchClaudeMd(join(homedir(), '.claude'));
 } catch {

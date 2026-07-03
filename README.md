@@ -1,6 +1,6 @@
 # @echoo19/hive-mcp
 
-MCP server for discovering and installing Hive agent tools.
+MCP server for finding, installing, updating, and auditing tools from the Hive catalog.
 
 ## Install
 
@@ -22,10 +22,10 @@ Add to your agent's MCP config:
 
 ## Tools
 
-- `discover(intent)` — find tools by describing what you want to build, ranked by fit and always-on context cost
-- `install(slug)` — install a tool by its Hive catalog slug, recorded in hive.lock
-- `uninstall(slug)` — reverse an install recorded in hive.lock
-- `update(slug)` — reinstall a tool at the catalog's current version
-- `sync()` — install everything in hive.lock that is not present
-- `audit()` — report drift (missing / untracked / stale) plus the always-on context cost of the project's MCP setup, with lighter swaps from the catalog
-- `list()` — tools in hive.lock plus the setup's total always-on context cost
+- `discover(intent)`: find matching catalog tools
+- `install(slug)`: install a tool and record it in `hive.lock`
+- `uninstall(slug)`: reverse a recorded install
+- `update(slug)`: reinstall a tool at the current catalog version
+- `sync()`: install missing tools from `hive.lock`
+- `audit()`: report lockfile drift and MCP context cost
+- `list()`: show tools recorded in `hive.lock`

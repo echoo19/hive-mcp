@@ -45,7 +45,7 @@ describe('patchClaudeMd', () => {
     expect(projectIndex).toBeLessThan(hiveIndex);
   });
 
-  it('is idempotent — running twice does not duplicate the section', () => {
+  it('is idempotent when running twice', () => {
     patchClaudeMd(dir);
     patchClaudeMd(dir);
     const content = readFileSync(join(dir, 'CLAUDE.md'), 'utf-8');

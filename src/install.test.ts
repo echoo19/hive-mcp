@@ -42,7 +42,7 @@ const unknownSpec: InstallSpec = {
   npmPackage: null, brewFormula: null, mcpServers: null,
 };
 
-describe('executeInstall — installer dispatch', () => {
+describe('executeInstall: installer dispatch', () => {
   it('runs npm install -g for CLI tools with npm package', async () => {
     const result = await executeInstall(cliSpec, CWD, { slug: 'claude-code', source: 's' });
     expect(childProcess.execSync).toHaveBeenCalledWith(
@@ -94,7 +94,7 @@ describe('executeInstall — installer dispatch', () => {
   });
 });
 
-describe('executeInstall — lock + ledger', () => {
+describe('executeInstall: lock + ledger', () => {
   it('writes a slug-keyed npm lock entry with global scope', async () => {
     await executeInstall(cliSpec, CWD, { slug: 'claude-code', source: 's' });
     expect(upsertLock).toHaveBeenCalledWith(CWD, 'claude-code', expect.objectContaining({

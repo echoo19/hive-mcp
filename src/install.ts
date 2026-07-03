@@ -37,7 +37,7 @@ function isInside(parent: string, child: string): boolean {
   return !!rel && !rel.startsWith('..') && !path.isAbsolute(rel);
 }
 
-/** Decide method + artifact + the side-effecting install action for a spec, or an unsupported reason. */
+/** Resolve the install method and command for a catalog entry. */
 function resolveInstall(spec: InstallSpec, cwd: string): ResolvedInstall | { unsupported: string } {
   const types = spec.types;
 
@@ -102,7 +102,7 @@ export async function executeInstall(spec: InstallSpec, cwd: string, ctx: Instal
     return { status: 'error', command: resolved.command, message: (err as Error).message };
   }
 
-  // Side effect succeeded — record provenance so the install is reversible and reproducible.
+  // Record provenance after the installer succeeds so the install can be reversed.
   const entry: LockEntry = {
     name: spec.name,
     version: spec.version,
@@ -136,7 +136,7 @@ function uninstallCommand(entry: LockEntry): string | null {
   }
 }
 
-/** Reverse a single lock entry by method. Idempotent. Refcount-gated for global artifacts. */
+/** Reverse a lock entry. Global installs are removed only after the last project ref is gone. */
 export async function executeUninstall(slug: string, entry: LockEntry, cwd: string): Promise<UninstallResult> {
   if (entry.method === 'mcp') {
     const configRel = entry.artifact.configPath ?? '';
@@ -150,7 +150,7 @@ export async function executeUninstall(slug: string, entry: LockEntry, cwd: stri
     return { status: 'uninstalled', message: `Removed servers [${(entry.artifact.mcpServers ?? []).join(', ')}] from ${configRel}` };
   }
 
-  // Global artifacts: drop this project's ref; only run the real removal at refcount 0.
+  // Drop this project's ref; remove the global artifact only at refcount 0.
   const remaining = removeRef(slug, cwd);
   if (remaining > 0) {
     return { status: 'uninstalled', message: `Dropped project reference; artifact still referenced by ${remaining} other project(s), left installed.` };
