@@ -15,12 +15,13 @@ import {
   audit as lifecycleAudit,
 } from './lifecycle.js';
 import { patchClaudeMd } from './claude-md-patch.js';
+import { contextReport, formatContextReport, WINDOW_TOKENS } from './context-audit.js';
 
 const BASE = 'https://hive-tooling.vercel.app';
 
 const server = new McpServer({
   name: 'hive',
-  version: '0.1.0',
+  version: '0.4.0',
 });
 
 server.tool(
@@ -109,7 +110,7 @@ server.tool(
 
 server.tool(
   'audit',
-  'Report drift between hive.lock, what is installed, and the catalog: missing (in lock, not installed), untracked (installed, not in lock), and stale (lock version behind catalog).',
+  'Report drift between hive.lock, what is installed, and the catalog (missing / untracked / stale), plus the always-on context cost of this project\'s MCP setup with lighter swaps from the catalog.',
   {},
   async () => {
     const r = await lifecycleAudit(process.cwd());
@@ -118,13 +119,20 @@ server.tool(
       ...r.untracked.map(s => `untracked: ${s} (installed, not in lock)`),
       ...r.stale.map(s => `stale: ${s.slug} (lock ${s.lockVersion} ≠ catalog ${s.catalogVersion})`),
     ];
-    return { content: [{ type: 'text', text: lines.length ? lines.join('\n') : 'No drift: hive.lock matches the installed toolset.' }] };
+    const integrity = lines.length ? lines.join('\n') : 'No drift: hive.lock matches the installed toolset.';
+    let context: string;
+    try {
+      context = formatContextReport(await contextReport(process.cwd()));
+    } catch {
+      context = 'Context: catalog unreachable; context cost report skipped.';
+    }
+    return { content: [{ type: 'text', text: `${integrity}\n\n${context}` }] };
   }
 );
 
 server.tool(
   'list',
-  "List the tools recorded in this project's hive.lock with slug, name, version, types, method, scope, and source.",
+  "List the tools recorded in this project's hive.lock with slug, name, version, types, method, scope, and source, plus the setup's total always-on context cost.",
   {},
   async () => {
     const tools = allLock(process.cwd());
@@ -132,9 +140,16 @@ server.tool(
     if (entries.length === 0) {
       return { content: [{ type: 'text', text: 'No tools in hive.lock yet. Use discover() to find tools and install() to add them.' }] };
     }
-    const text = entries.map(([slug, e]) =>
+    let text = entries.map(([slug, e]) =>
       `${slug} — ${e.name} v${e.version} [${e.types.join(', ')}] via ${e.method}/${e.scope} (${e.source})`
     ).join('\n');
+    try {
+      const report = await contextReport(process.cwd());
+      const pct = ((report.totalTokens / WINDOW_TOKENS) * 100).toFixed(1);
+      text += `\n\nAlways-on context: ${formatTokens(report.totalTokens)} (${pct}% of a 200k window). Run audit() for the breakdown.`;
+    } catch {
+      // offline: plain list is still useful
+    }
     return { content: [{ type: 'text', text }] };
   }
 );

@@ -1,6 +1,6 @@
 {
   "name": "@echoo19/hive-mcp",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "MCP server for discovering and installing Hive agent tools",
   "type": "module",
   "bin": {
