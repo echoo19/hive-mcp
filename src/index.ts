@@ -4,7 +4,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { matchTools, fetchInstallMd, formatTokens } from './hive-api.js';
+import { matchTools, fetchInstallMd, formatTokens, planStack } from './hive-api.js';
 import { parseInstallMd } from './parse.js';
 import { executeInstall } from './install.js';
 import { allLock } from './lockfile.js';
@@ -16,12 +16,13 @@ import {
 } from './lifecycle.js';
 import { patchClaudeMd } from './claude-md-patch.js';
 import { contextReport, formatContextReport, WINDOW_TOKENS } from './context-audit.js';
+import { formatStackPlan } from './stack-plan.js';
 
 const BASE = 'https://hive-tooling.vercel.app';
 
 const server = new McpServer({
   name: 'hive',
-  version: '0.4.0',
+  version: '0.5.0',
 });
 
 server.tool(
@@ -47,6 +48,19 @@ server.tool(
       text += `\n\nRecommendation: ${recommendation.reason}`;
     }
     return { content: [{ type: 'text', text }] };
+  }
+);
+
+server.tool(
+  'plan',
+  'Plan a small Hive tool stack for a project brief. Returns roles, slugs, reasons, and the total always-on context cost before install.',
+  {
+    brief: z.string().describe('The project or workflow, e.g. "build a Supabase app, deploy it to Vercel, and manage GitHub PRs"'),
+    budget: z.enum(['lean', 'balanced', 'capable']).optional().describe('Context budget. lean keeps the stack smallest, balanced is the default, capable allows heavier tools.'),
+  },
+  async ({ brief, budget }) => {
+    const plan = await planStack(brief, budget ?? 'balanced');
+    return { content: [{ type: 'text', text: formatStackPlan(plan) }] };
   }
 );
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { matchTools, fetchInstallMd, formatTokens } from './hive-api.js';
+import { matchTools, fetchInstallMd, formatTokens, planStack } from './hive-api.js';
 
 const BASE = 'https://hive-tooling.vercel.app';
 
@@ -63,6 +63,32 @@ describe('formatTokens', () => {
     expect(formatTokens(1000)).toBe('~1.0k tok');
     expect(formatTokens(1500)).toBe('~1.5k tok');
     expect(formatTokens(12300)).toBe('~12.3k tok');
+  });
+});
+
+describe('planStack', () => {
+  it('fetches /api/plan and returns the stack plan', async () => {
+    const mockPlan = {
+      brief: 'deploy app',
+      budget: 'lean',
+      summary: '1 tool, 0 tokens always-on context.',
+      totalTokens: 0,
+      items: [],
+      omitted: [],
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockPlan),
+    }));
+
+    const result = await planStack('deploy app', 'lean');
+    expect(fetch).toHaveBeenCalledWith(`${BASE}/api/plan?q=deploy+app&budget=lean`);
+    expect(result).toEqual(mockPlan);
+  });
+
+  it('throws when /api/plan fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+    await expect(planStack('deploy app')).rejects.toThrow('Hive API error: 503');
   });
 });
 

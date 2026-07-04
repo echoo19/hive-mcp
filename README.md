@@ -1,6 +1,6 @@
 # @echoo19/hive-mcp
 
-MCP server for finding, installing, updating, and auditing tools from the Hive catalog.
+MCP server for planning, finding, installing, updating, and auditing tools from the Hive catalog.
 
 ## Install
 
@@ -23,6 +23,7 @@ Add to your agent's MCP config:
 ## Tools
 
 - `discover(intent)`: find matching catalog tools
+- `plan(brief, budget)`: suggest a small project toolset with context cost
 - `install(slug)`: install a tool and record it in `hive.lock`
 - `uninstall(slug)`: reverse a recorded install
 - `update(slug)`: reinstall a tool at the current catalog version

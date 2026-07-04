@@ -1,6 +1,6 @@
 {
   "name": "@echoo19/hive-mcp",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Discover, install, update, and audit Hive catalog tools from an MCP client",
   "repository": {
     "type": "git",
