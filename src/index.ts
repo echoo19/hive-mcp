@@ -13,6 +13,7 @@ import {
   update as lifecycleUpdate,
   sync as lifecycleSync,
   audit as lifecycleAudit,
+  optimize as lifecycleOptimize,
 } from './lifecycle.js';
 import { patchClaudeMd } from './claude-md-patch.js';
 import { contextReport, formatContextReport, WINDOW_TOKENS } from './context-audit.js';
@@ -141,6 +142,22 @@ server.tool(
       context = 'Context: catalog unreachable; context cost report skipped.';
     }
     return { content: [{ type: 'text', text: `${integrity}\n\n${context}` }] };
+  }
+);
+
+server.tool(
+  'optimize',
+  'Apply the lighter swaps audit() finds: for every tool in hive.lock with a cheaper catalog equivalent, install the lighter tool, remove the heavier one, and update hive.lock. Reports before/after always-on context cost. Run audit() first to preview; optimize() only acts on tools this project tracks in hive.lock.',
+  {},
+  async () => {
+    const r = await lifecycleOptimize(process.cwd());
+    const lines = [
+      ...r.swapped.map(s => `↓ swapped ${s.from} → ${s.to} (saved ${formatTokens(s.savedTokens)})`),
+      ...r.failed.map(f => `✗ ${f.slug}: ${f.message}`),
+    ];
+    if (lines.length === 0) lines.push('No lighter swaps available; nothing to optimize.');
+    lines.push(`Always-on: ${formatTokens(r.beforeTokens)} → ${formatTokens(r.afterTokens)}.`);
+    return { content: [{ type: 'text', text: lines.join('\n') }] };
   }
 );
 

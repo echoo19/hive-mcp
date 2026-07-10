@@ -2,9 +2,10 @@ import * as path from 'node:path';
 import { allLock, getLock, removeLock, type LockEntry } from './lockfile.js';
 import { configServerNames } from './config-patch.js';
 import { readState } from './state.js';
-import { fetchInstallMd } from './hive-api.js';
+import { fetchInstallMd, fetchAuditIndex } from './hive-api.js';
 import { parseInstallMd } from './parse.js';
 import { executeInstall, executeUninstall } from './install.js';
+import { contextReport, type ContextDeps } from './context-audit.js';
 
 export interface LifecycleDeps {
   fetchInstallMd: typeof fetchInstallMd;
@@ -14,6 +15,7 @@ export interface LifecycleDeps {
 }
 
 const DEFAULT_DEPS: LifecycleDeps = { fetchInstallMd, parseInstallMd, executeInstall, executeUninstall };
+const DEFAULT_CTX_DEPS: ContextDeps = { fetchAuditIndex };
 
 const BASE = 'https://hive-tooling.vercel.app';
 const sourceFor = (slug: string) => `${BASE}/tools/${slug}`;
@@ -116,6 +118,69 @@ export async function audit(cwd: string, deps: LifecycleDeps = DEFAULT_DEPS): Pr
   for (const slug of Object.keys(state)) {
     if (!(slug in tools)) summary.untracked.push(slug);
   }
+
+  return summary;
+}
+
+export interface OptimizeSwap { from: string; to: string; savedTokens: number; }
+export interface OptimizeSummary {
+  swapped: OptimizeSwap[];
+  failed: { slug: string; message: string }[];
+  beforeTokens: number;
+  afterTokens: number;
+}
+
+/**
+ * Apply the lighter swaps audit()/contextReport() surface: for every hive.lock-tracked
+ * tool with a cheaper catalog equivalent, install the lighter tool first, then remove
+ * the heavier one only once the replacement is confirmed installed. Only acts on tools
+ * this project's hive.lock can reverse; tools merely scanned from an MCP config file
+ * (not lock-tracked) are left alone.
+ */
+export async function optimize(
+  cwd: string,
+  deps: LifecycleDeps = DEFAULT_DEPS,
+  ctxDeps: ContextDeps = DEFAULT_CTX_DEPS,
+): Promise<OptimizeSummary> {
+  const before = await contextReport(cwd, ctxDeps);
+  const summary: OptimizeSummary = {
+    swapped: [],
+    failed: [],
+    beforeTokens: before.totalTokens,
+    afterTokens: before.totalTokens,
+  };
+
+  for (const item of before.items) {
+    if (!item.matchSlug || item.swaps.length === 0) continue;
+    if (!getLock(cwd, item.matchSlug)) continue; // not lock-tracked; nothing we can reverse
+
+    const slug = item.matchSlug;
+    const swap = item.swaps.reduce((best, s) => (s.saved > best.saved ? s : best), item.swaps[0]);
+
+    try {
+      const md = await deps.fetchInstallMd(swap.slug);
+      const spec = deps.parseInstallMd(md);
+      const installResult = await deps.executeInstall(spec, cwd, { slug: swap.slug, source: sourceFor(swap.slug) });
+      if (installResult.status !== 'installed') {
+        summary.failed.push({ slug, message: `could not install ${swap.slug}: ${installResult.message ?? installResult.status}` });
+        continue;
+      }
+
+      const uninstallResult = await uninstall(slug, cwd, deps);
+      if (!uninstallResult.reversed) {
+        summary.failed.push({ slug, message: `installed ${swap.slug} but could not remove ${slug}: ${uninstallResult.message}` });
+        continue;
+      }
+
+      summary.swapped.push({ from: slug, to: swap.slug, savedTokens: swap.saved });
+    } catch (err) {
+      summary.failed.push({ slug, message: (err as Error).message });
+    }
+  }
+
+  summary.afterTokens = summary.swapped.length > 0
+    ? (await contextReport(cwd, ctxDeps)).totalTokens
+    : summary.beforeTokens;
 
   return summary;
 }

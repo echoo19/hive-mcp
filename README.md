@@ -29,6 +29,7 @@ Every skill, subagent, plugin, and MCP server you add to a coding agent spends c
 │ plan       fit a stack to a context budget │
 │ install    write it into hive.lock         │
 │ audit      price the context you carry     │
+│ optimize   apply the swaps audit finds     │
 └────────────────────────────────────────────┘
    reads the Hive catalog  ·  writes your hive.lock
 ```
@@ -77,6 +78,9 @@ You:    How much context are my tools using?
 Agent:  → audit()
         Always-on: ~4.3k tokens across 6 tools.
         Lighter swaps: replace mcp-playwright (~1.6k) with the playwright CLI (0 tok).
+        → optimize()
+        ↓ swapped mcp-playwright → playwright-cli (saved ~1.6k tok)
+        Always-on: ~4.3k tok → ~2.7k tok.
 ```
 
 ## Tools
@@ -90,6 +94,7 @@ Agent:  → audit()
 | `update` | `update(slug?)` | Reinstall a tool at the catalog's current version; omit `slug` to update all. |
 | `sync` | `sync()` | Install everything listed in `hive.lock` that is missing. |
 | `audit` | `audit()` | Report lockfile drift and the always-on context cost of your MCP setup, with lighter swaps. |
+| `optimize` | `optimize()` | Apply the lighter swaps `audit()` finds: install the lighter tool, remove the heavier one, and update `hive.lock`. Reports before/after context cost. |
 | `list` | `list()` | Show the tools recorded in `hive.lock` and their total context cost. |
 
 ## Why context cost
